@@ -208,7 +208,28 @@ const emitRiderUpdates = async () => {
 
 const InsertAssets = async (req, res) => {
   try {
-    const { DriverName, cabNumber, vendorName, phone } = req.body;
+    const { chat_data } = req.body;
+
+    if (!chat_data) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid data format. 'chat_data' is required.",
+      });
+    }
+
+    // Extract fields from chat_data and custom_fields
+    const DriverName = chat_data.name;
+    const phone = chat_data.waba;
+    const cabNumber = chat_data.custom_fields.find(field => field.id === "vehicle_details")?.value || "";
+    const vendorName = chat_data.custom_fields.find(field => field.id === "vendor_name")?.value || "";
+
+    // Validate extracted fields
+    if (!DriverName || !phone || !cabNumber || !vendorName) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: DriverName, cabNumber, vendorName, or phone.",
+      });
+    }
 
     // Create a new instance of the Assets model
     const data = new Assets({
@@ -224,18 +245,26 @@ const InsertAssets = async (req, res) => {
     // Respond with the saved data
     res.status(201).json({
       success: true,
-      message: 'Asset created successfully',
+      message: "Asset created successfully",
       data: savedData,
     });
   } catch (error) {
-    // Handle errors
+    // Handle duplicate cabNumber errors or other database errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Duplicate cabNumber detected. Each cabNumber must be unique.",
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to create asset',
+      message: "Failed to create asset",
       error: error.message,
     });
   }
 };
+
 
 
 
